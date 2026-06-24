@@ -17,53 +17,70 @@ exports.handler = async (event) => {
       })
     });
 
-    const data = await response.json();
-    const token = data.access_token;
-    const error = data.error;
+    const text = await response.text();
+    const params = new URLSearchParams(text);
+    const token = params.get("access_token");
+    const error = params.get("error");
 
     if (error || !token) {
       return {
         statusCode: 200,
         headers: { "Content-Type": "text/html" },
-        body: `<!DOCTYPE html><html><body><script>
-          window.opener.postMessage(
-            'authorization:github:error:' + ${JSON.stringify(error || "no token")},
-            '*'
-          );
-          window.close();
-        <\/script><p>Authorization failed. You can close this window.</p></body></html>`
+        body: `<!DOCTYPE html>
+<html>
+<body>
+<script>
+  (function() {
+    var msg = "authorization:github:error:" + ${JSON.stringify(error || "no token received")};
+    window.opener && window.opener.postMessage(msg, "*");
+    window.close();
+  })();
+<\/script>
+<p>Authorization failed.</p>
+</body>
+</html>`
       };
     }
 
     return {
       statusCode: 200,
       headers: { "Content-Type": "text/html" },
-      body: `<!DOCTYPE html><html><body><script>
-        (function() {
-          const message = JSON.stringify({
-            token: ${JSON.stringify(token)},
-            provider: "github"
-          });
-          window.opener.postMessage(
-            'authorization:github:success:' + message,
-            '*'
-          );
-          window.close();
-        })();
-      <\/script><p>Authorizing... you can close this window.</p></body></html>`
+      body: `<!DOCTYPE html>
+<html>
+<body>
+<script>
+  (function() {
+    var token = ${JSON.stringify(token)};
+    var msg = "authorization:github:success:" + JSON.stringify({
+      token: token,
+      provider: "github"
+    });
+    window.opener && window.opener.postMessage(msg, "*");
+    window.close();
+  })();
+<\/script>
+<p>Authorizing... you can close this window.</p>
+</body>
+</html>`
     };
 
   } catch (err) {
     return {
       statusCode: 200,
       headers: { "Content-Type": "text/html" },
-      body: `<!DOCTYPE html><html><body><script>
-        window.opener.postMessage(
-          'authorization:github:error:${err.message}',
-          '*'
-        );
-        window.close();
-      <\/script><p>Error: ${err.message}</p></body></html>`
+      body: `<!DOCTYPE html>
+<html>
+<body>
+<script>
+  (function() {
+    var msg = "authorization:github:error:" + ${JSON.stringify(err.message)};
+    window.opener && window.opener.postMessage(msg, "*");
+    window.close();
+  })();
+<\/script>
+<p>Error occurred.</p>
+</body>
+</html>`
     };
   }
 };
