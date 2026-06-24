@@ -19,41 +19,51 @@ exports.handler = async (event) => {
 
     const data = await response.json();
     const token = data.access_token;
+    const error = data.error;
 
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <body>
-      <script>
-        (function() {
-          function receiveMessage(e) {
-            console.log("receiveMessage %o", e);
-          }
-          window.addEventListener("message", receiveMessage, false);
-          
-          const token = ${JSON.stringify(token)};
-          const mess = token
-            ? "authorization:github:success:" + JSON.stringify({ token: token, provider: "github" })
-            : "authorization:github:error:token not found";
-
-          window.opener.postMessage(mess, "*");
-        })();
-      </script>
-      <p>Authorizing... you can close this window.</p>
-      </body>
-      </html>
-    `;
+    if (error || !token) {
+      return {
+        statusCode: 200,
+        headers: { "Content-Type": "text/html" },
+        body: `<!DOCTYPE html><html><body><script>
+          window.opener.postMessage(
+            'authorization:github:error:' + ${JSON.stringify(error || "no token")},
+            '*'
+          );
+          window.close();
+        <\/script><p>Authorization failed. You can close this window.</p></body></html>`
+      };
+    }
 
     return {
       statusCode: 200,
       headers: { "Content-Type": "text/html" },
-      body: html
+      body: `<!DOCTYPE html><html><body><script>
+        (function() {
+          const message = JSON.stringify({
+            token: ${JSON.stringify(token)},
+            provider: "github"
+          });
+          window.opener.postMessage(
+            'authorization:github:success:' + message,
+            '*'
+          );
+          window.close();
+        })();
+      <\/script><p>Authorizing... you can close this window.</p></body></html>`
     };
 
   } catch (err) {
     return {
-      statusCode: 500,
-      body: JSON.stringify({ error: err.message })
+      statusCode: 200,
+      headers: { "Content-Type": "text/html" },
+      body: `<!DOCTYPE html><html><body><script>
+        window.opener.postMessage(
+          'authorization:github:error:${err.message}',
+          '*'
+        );
+        window.close();
+      <\/script><p>Error: ${err.message}</p></body></html>`
     };
   }
 };
